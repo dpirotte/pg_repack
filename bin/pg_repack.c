@@ -159,6 +159,7 @@ typedef struct repack_table
 	const char	   *create_trigger;	/* CREATE TRIGGER z_repack_trigger */
 	const char	   *enable_trigger;	/* ALTER TABLE ENABLE ALWAYS TRIGGER z_repack_trigger */
 	const char	   *create_table;	/* CREATE TABLE table AS SELECT */
+  const char     *condition; /* WHERE */
 	const char	   *drop_columns;	/* ALTER TABLE DROP COLUMNs */
 	const char	   *delete_log;		/* DELETE FROM log */
 	const char	   *lock_table;		/* LOCK TABLE table */
@@ -226,6 +227,7 @@ static SimpleStringList	r_index = {NULL, NULL};
 static bool				only_indexes = false;
 static int				wait_timeout = 60;	/* in seconds */
 static int				jobs = 0;	/* number of concurrent worker conns. */
+static char       *condition = NULL;
 
 /* buffer should have at least 11 bytes */
 static char *
@@ -248,6 +250,7 @@ static pgut_option options[] =
 	{ 'i', 'T', "wait-timeout", &wait_timeout },
 	{ 'B', 'Z', "no-analyze", &analyze },
 	{ 'i', 'j', "jobs", &jobs },
+  { 's', 'c', "condition", &condition },
 	{ 0 },
 };
 
@@ -670,6 +673,13 @@ repack_one_database(const char *orderby, char *errbuf, size_t errsize)
 		appendStringInfoString(&sql, create_table_1);
 		appendStringInfoString(&sql, tablespace);
 		appendStringInfoString(&sql, create_table_2);
+
+    if (condition)
+    {
+      appendStringInfoString(&sql, " WHERE ");
+      appendStringInfoString(&sql, condition);
+    }
+
 		if (!orderby)
 		{
 			if (ckey != NULL)
@@ -919,7 +929,7 @@ rebuild_indexes(const repack_table *table)
 							}
 							CLEARPGRES(res);
 						}
-						
+
 						/* We are only going to re-queue one worker, even
 						 * though more than one index build might be finished.
 						 * Any other jobs which may be finished will
@@ -1751,7 +1761,7 @@ repack_table_indexes(PGresult *index_details)
 					 table_name);
 	if (!(lock_exclusive(connection, params[1], sql.data, TRUE)))
 	{
-		elog(WARNING, "lock_exclusive() failed in connection for %s", 
+		elog(WARNING, "lock_exclusive() failed in connection for %s",
 			 table_name);
 		goto drop_idx;
 	}
@@ -1821,7 +1831,7 @@ repack_all_indexes(char *errbuf, size_t errsize)
 
 	if (r_index.head)
 	{
-		appendStringInfoString(&sql, 
+		appendStringInfoString(&sql,
 			"SELECT i.relname, idx.indexrelid, idx.indisvalid, idx.indrelid, idx.indrelid::regclass, n.nspname"
 			" FROM pg_index idx JOIN pg_class i ON i.oid = idx.indexrelid"
 			" JOIN pg_namespace n ON n.oid = i.relnamespace"
@@ -1868,7 +1878,7 @@ repack_all_indexes(char *errbuf, size_t errsize)
 		else
 			elog(INFO, "repacking \"%s\"", cell->val);
 
-		if (!repack_table_indexes(res))	
+		if (!repack_table_indexes(res))
 			elog(WARNING, "repack failed for \"%s\"", cell->val);
 
 		CLEARPGRES(res);
@@ -1904,4 +1914,5 @@ pgut_help(bool details)
 	printf("  -x, --only-indexes        move only indexes of the specified table\n");
 	printf("  -T, --wait-timeout=SECS   timeout to cancel other backends on conflict\n");
 	printf("  -Z, --no-analyze          don't analyze at end\n");
+	printf("  -c, --condition           only repack rows matching this where clause\n");
 }

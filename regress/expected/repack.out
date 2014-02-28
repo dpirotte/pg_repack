@@ -10,6 +10,15 @@ CREATE TABLE tbl_cluster (
 ) WITH (fillfactor = 70);
 CREATE INDEX ","") cluster" ON tbl_cluster ("time", length(","")"), ","")" text_pattern_ops) WITH (fillfactor = 75);
 ALTER TABLE tbl_cluster CLUSTER ON ","") cluster";
+CREATE TABLE tbl_partial (
+  pk int primary key,
+  fk int
+);
+CREATE TABLE tbl_partial_order (
+  pk int primary key,
+  k int,
+  fk int
+);
 CREATE TABLE tbl_only_pkey (
 	col1 int PRIMARY KEY,
 	","")" text
@@ -63,6 +72,14 @@ INSERT INTO tbl_cluster VALUES(2, '2008-01-01 00:00:00', 'king');
 INSERT INTO tbl_cluster VALUES(3, '2008-03-04 12:00:00', 'joker');
 INSERT INTO tbl_cluster VALUES(4, '2008-03-05 15:00:00', 'queen');
 INSERT INTO tbl_cluster VALUES(5, '2008-01-01 00:30:00', sqrt(2::numeric(1000,999))::text || sqrt(3::numeric(1000,999))::text);
+INSERT INTO tbl_partial (pk, fk) VALUES (1,1);
+INSERT INTO tbl_partial (pk, fk) VALUES (2,2);
+INSERT INTO tbl_partial (pk, fk) VALUES (3,1);
+INSERT INTO tbl_partial (pk, fk) VALUES (4,2);
+INSERT INTO tbl_partial_order (pk, k, fk) VALUES (1,4,1);
+INSERT INTO tbl_partial_order (pk, k, fk) VALUES (2,3,2);
+INSERT INTO tbl_partial_order (pk, k, fk) VALUES (3,2,1);
+INSERT INTO tbl_partial_order (pk, k, fk) VALUES (4,1,2);
 INSERT INTO tbl_only_pkey VALUES(1, 'abc');
 INSERT INTO tbl_only_pkey VALUES(2, 'def');
 INSERT INTO tbl_only_ckey VALUES(1, '2008-01-01 00:00:00', 'abc');
@@ -114,6 +131,10 @@ SELECT * FROM tbl_with_dropped_toast;
 --
 -- do repack
 --
+\! pg_repack --dbname=contrib_regression --table=tbl_partial --condition='fk != 1'
+INFO: repacking table "tbl_partial"
+\! pg_repack --dbname=contrib_regression --table=tbl_partial_order --order='k' --condition='fk != 1'
+INFO: repacking table "tbl_partial_order"
 \! pg_repack --dbname=contrib_regression --table=tbl_cluster
 INFO: repacking table "tbl_cluster"
 \! pg_repack --dbname=contrib_regression --table=tbl_badindex
@@ -121,6 +142,8 @@ INFO: repacking table "tbl_badindex"
 WARNING: skipping invalid index: CREATE UNIQUE INDEX idx_badindex_n ON tbl_badindex USING btree (n)
 \! pg_repack --dbname=contrib_regression
 INFO: repacking table "tbl_cluster"
+INFO: repacking table "tbl_partial"
+INFO: repacking table "tbl_partial_order"
 INFO: repacking table "tbl_only_pkey"
 INFO: repacking table "tbl_gistkey"
 INFO: repacking table "tbl_with_dropped_column"
@@ -212,6 +235,20 @@ SELECT col1, to_char("time", 'YYYY-MM-DD HH24:MI:SS'), ","")" FROM tbl_cluster;
     4 | 2008-03-05 15:00:00 | queen
     1 | 2008-12-31 10:00:00 | admin
 (5 rows)
+
+SELECT * FROM tbl_partial ORDER BY pk;
+ pk | fk 
+----+----
+  2 |  2
+  4 |  2
+(2 rows)
+
+SELECT * FROM tbl_partial_order ORDER BY pk;
+ pk | k | fk 
+----+---+----
+  2 | 3 |  2
+  4 | 1 |  2
+(2 rows)
 
 SELECT * FROM tbl_only_ckey ORDER BY 1;
  col1 |           col2           | ,") 

@@ -12,6 +12,17 @@ CREATE TABLE tbl_cluster (
 CREATE INDEX ","") cluster" ON tbl_cluster ("time", length(","")"), ","")" text_pattern_ops) WITH (fillfactor = 75);
 ALTER TABLE tbl_cluster CLUSTER ON ","") cluster";
 
+CREATE TABLE tbl_partial (
+  pk int primary key,
+  fk int
+);
+
+CREATE TABLE tbl_partial_order (
+  pk int primary key,
+  k int,
+  fk int
+);
+
 CREATE TABLE tbl_only_pkey (
 	col1 int PRIMARY KEY,
 	","")" text
@@ -76,6 +87,16 @@ INSERT INTO tbl_cluster VALUES(3, '2008-03-04 12:00:00', 'joker');
 INSERT INTO tbl_cluster VALUES(4, '2008-03-05 15:00:00', 'queen');
 INSERT INTO tbl_cluster VALUES(5, '2008-01-01 00:30:00', sqrt(2::numeric(1000,999))::text || sqrt(3::numeric(1000,999))::text);
 
+INSERT INTO tbl_partial (pk, fk) VALUES (1,1);
+INSERT INTO tbl_partial (pk, fk) VALUES (2,2);
+INSERT INTO tbl_partial (pk, fk) VALUES (3,1);
+INSERT INTO tbl_partial (pk, fk) VALUES (4,2);
+
+INSERT INTO tbl_partial_order (pk, k, fk) VALUES (1,4,1);
+INSERT INTO tbl_partial_order (pk, k, fk) VALUES (2,3,2);
+INSERT INTO tbl_partial_order (pk, k, fk) VALUES (3,2,1);
+INSERT INTO tbl_partial_order (pk, k, fk) VALUES (4,1,2);
+
 INSERT INTO tbl_only_pkey VALUES(1, 'abc');
 INSERT INTO tbl_only_pkey VALUES(2, 'def');
 
@@ -120,6 +141,8 @@ SELECT * FROM tbl_with_dropped_toast;
 -- do repack
 --
 
+\! pg_repack --dbname=contrib_regression --table=tbl_partial --condition='fk != 1'
+\! pg_repack --dbname=contrib_regression --table=tbl_partial_order --order='k' --condition='fk != 1'
 \! pg_repack --dbname=contrib_regression --table=tbl_cluster
 \! pg_repack --dbname=contrib_regression --table=tbl_badindex
 \! pg_repack --dbname=contrib_regression
@@ -137,6 +160,8 @@ SELECT * FROM tbl_with_dropped_toast;
 \d tbl_idxopts
 
 SELECT col1, to_char("time", 'YYYY-MM-DD HH24:MI:SS'), ","")" FROM tbl_cluster;
+SELECT * FROM tbl_partial ORDER BY pk;
+SELECT * FROM tbl_partial_order ORDER BY pk;
 SELECT * FROM tbl_only_ckey ORDER BY 1;
 SELECT * FROM tbl_only_pkey ORDER BY 1;
 SELECT * FROM tbl_gistkey ORDER BY 1;
